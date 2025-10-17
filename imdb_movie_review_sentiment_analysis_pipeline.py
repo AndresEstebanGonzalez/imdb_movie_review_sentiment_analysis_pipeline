@@ -9,8 +9,12 @@ and confusion matrix.
 
 #Import re
 import re
+#Import to save pipeline
+from joblib import dump
 #Import Pandas
 import pandas as pd
+#Import Numpy
+import numpy as np
 #Import split
 from sklearn.model_selection import train_test_split
 #Import Pipeline
@@ -26,16 +30,15 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 
 #Import data
 DATA_PATH = "data/IMDB Dataset.csv"
-imdb_df_full = pd.read_csv(DATA_PATH, encoding="latin-1", header=None)
-imdb_df = imdb_df_full.drop(index=0)
-imdb_df.columns = ["review", "polarity"]
+imdb_df = pd.read_csv(DATA_PATH, encoding="latin-1")
 #Convert positive & negative to 1 & 0
-imdb_df["polarity"] = imdb_df["polarity"].map({"positive":1, "negative":0})
+imdb_df["sentiment"] = imdb_df["sentiment"].map({"positive":1, "negative":0})
 #Split data
 X_train, X_test, y_train, y_test = train_test_split(
     imdb_df["review"],
-    imdb_df["polarity"],
-    stratify=imdb_df["polarity"]
+    imdb_df["sentiment"],
+    stratify=imdb_df["sentiment"],
+    random_state=1
 )
 #Clean text batch function
 def clean_text_batch(reviews):
@@ -62,10 +65,24 @@ SAMPLE_PRINT = True
 N = 3
 if SAMPLE_PRINT:
     sample = imdb_df.sample(N, random_state=1)
-    for review, polarity in zip(sample["review"], sample["polarity"]):
-        SENTIMENT = "😊 Positive" if polarity == 1 else "😠 Negative"
+    for review, sentiment in zip(sample["review"], sample["sentiment"]):
+        SENTIMENT = "😊 Positive" if sentiment == 1 else "😠 Negative"
         print(f"{SENTIMENT} -> {review}")
 
-print("Pipeline Accuracy:", accuracy_score(y_test, pipeline_prediction))
-print(classification_report(y_test, pipeline_prediction))
-print(confusion_matrix(y_test, pipeline_prediction))
+#Save pipeline
+PIPELINE_PATH = "imdb_logreg_pipeline.joblib"
+dump(pipeline, PIPELINE_PATH)
+
+#Evaluate models
+logreg_accuracy = accuracy_score(y_test, pipeline_prediction)
+logreg_report = classification_report(y_test, pipeline_prediction)
+logreg_confusion = confusion_matrix(y_test, pipeline_prediction)
+
+#Save text report
+with open("reports/pipeline_evaluation.txt", mode="w", encoding="utf-8") as report:
+    report.write("=== Logistic Regression ===\n")
+    report.write(f"Accuracy: {logreg_accuracy:.4f}\n\n")
+    report.write("Classification Report:\n")
+    report.write(logreg_report + "\n")
+    report.write("Confusion Matrix:\n")
+    report.write(np.array2string(logreg_confusion) + "\n")
